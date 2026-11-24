@@ -1,0 +1,280 @@
+:root {
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --fg: #eee;
+  --fg-dim: #ccc;
+  --fg-faint: #aaa;
+  --line: rgba(255, 255, 255, 0.35);
+  --panel: rgba(60, 60, 60, 0.88);
+  --chip: rgba(30, 30, 30, 0.7);
+  /* keep controls clear of notches and the home bar */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #000;
+  color: var(--fg);
+  font-family: var(--mono);
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ---------- shared bits ---------- */
+button {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 6px 12px;
+  border-radius: 0;
+  border: 1px solid var(--fg);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+button:hover:not(:disabled) { background: var(--fg); color: #333; }
+button:disabled { opacity: 0.5; cursor: default; }
+.hidden { display: none !important; }
+
+/* ---------- camera ---------- */
+#stage {
+  position: fixed;
+  inset: 0;
+}
+#stage video, #stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+/* fill the screen when the camera's shape is close to the screen's */
+#stage.cover video, #stage.cover canvas { object-fit: cover; }
+/* selfie camera: mirror the video only; the overlay flips its own drawing */
+#stage.mirrored video { transform: scaleX(-1); }
+/* explicit z-index: Safari can paint a transformed (mirrored) video on top */
+#overlay { z-index: 1; cursor: crosshair; touch-action: none; }
+#stage.flash::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+/* ---------- count ---------- */
+#count {
+  position: fixed;
+  top: calc(8px + var(--safe-t));
+  left: calc(16px + var(--safe-l));
+  /* not the mono font: its slashed zero reads as "Ø" at this size */
+  font-family: system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(6rem, 26vmin, 20rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--fg);
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  transform-origin: top left;
+  transition: transform 80ms;
+}
+#count.bump { transform: scale(1.1); }
+
+#hint {
+  position: fixed;
+  bottom: calc(16px + var(--safe-b));
+  left: 50%;
+  translate: -50% 0;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  background: var(--chip);
+  font-size: 0.9rem;
+  pointer-events: none;
+  text-align: center;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+}
+
+/* ---------- stopwatch ---------- */
+#stopwatch {
+  position: fixed;
+  left: calc(16px + var(--safe-l));
+  bottom: calc(16px + var(--safe-b));
+  z-index: 1; /* above the count and settings button, below the drawer */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  background: var(--chip);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#stopwatch.dragging { cursor: grabbing; border-color: var(--fg); }
+#stopwatch .grip {
+  color: var(--fg-faint);
+  letter-spacing: -0.3em;
+  padding-right: 0.3em;
+}
+#sw-time {
+  padding: 0 4px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+#stopwatch button { padding: 3px 10px; font-size: 0.8rem; }
+#stopwatch button.running { background: var(--fg); color: #333; }
+
+/* ---------- settings drawer ---------- */
+#menu-toggle {
+  position: fixed;
+  top: calc(16px + var(--safe-t));
+  right: calc(16px + var(--safe-r));
+  background: var(--chip);
+}
+body.drawer-open #menu-toggle { visibility: hidden; }
+
+#drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  width: min(340px, 85vw);
+  padding: calc(16px + var(--safe-t)) calc(16px + var(--safe-r)) calc(16px + var(--safe-b)) 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  transform: translateX(100%);
+  transition: transform 200ms ease;
+}
+body.drawer-open #drawer { transform: none; }
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+#drawer h2 { margin: 0; font-size: 1.2rem; }
+#status { margin: 0; color: var(--fg-faint); font-size: 0.85rem; }
+
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--fg-dim);
+}
+label.check { flex-direction: row; align-items: center; gap: 8px; }
+input[type="range"], input[type="checkbox"] { accent-color: var(--fg); }
+input[type="range"] { width: 100%; margin: 0; }
+
+.meter {
+  position: relative;
+  height: 6px;
+  margin-top: -8px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.meter > div:first-child {
+  height: 100%;
+  width: 0;
+  background: #888;
+}
+.meter > div:last-child {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--fg);
+}
+
+/* ---------- welcome ---------- */
+#start-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  overflow-y: auto; /* short landscape screens */
+  padding: calc(16px + var(--safe-t)) calc(16px + var(--safe-r)) calc(16px + var(--safe-b)) calc(16px + var(--safe-l));
+  background: var(--panel);
+}
+#start-screen .card {
+  width: 100%;
+  max-width: 30rem;
+  margin: auto; /* centres, but still scrolls if it doesn't fit */
+}
+#start-screen h1 {
+  margin: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+#start-screen ol {
+  margin: 18px 0 26px;
+  padding-left: 1.6em;
+  line-height: 1.8;
+  color: var(--fg-dim);
+}
+#start-screen #start { font-size: 1rem; padding: 8px 16px; }
+#start-screen p { margin: 12px 0 0; color: var(--fg-faint); min-height: 1.2em; }
+
+/* ---------- phones ---------- */
+@media (max-width: 600px) {
+  /* settings become a bottom sheet */
+  #drawer {
+    top: auto;
+    left: 0;
+    width: 100%;
+    max-height: 75dvh;
+    padding: 16px calc(16px + var(--safe-r)) calc(20px + var(--safe-b)) calc(16px + var(--safe-l));
+    border-left: none;
+    border-top: 1px solid var(--line);
+    background: rgb(52, 52, 52);
+    transform: translateY(100%);
+  }
+  .row button { flex: 1; }
+
+  /* keep the hint clear of the stopwatch's default spot */
+  #hint { bottom: calc(72px + var(--safe-b)); }
+
+  #start-screen h1 { font-size: 1.4rem; }
+  #start-screen #start { width: 100%; padding: 12px 16px; }
+}
+
+/* ---------- phones on their side ---------- */
+@media (orientation: landscape) and (max-height: 500px) {
+  #count { font-size: clamp(4.5rem, 24vh, 8rem); }
+  /* bottom edge is crowded by the stopwatch; put the hint up top */
+  #hint { top: calc(16px + var(--safe-t)); bottom: auto; }
+  #drawer { gap: 12px; }
+  #start-screen ol { margin: 12px 0 16px; line-height: 1.6; }
+}
+
+/* ---------- touch screens: finger-sized targets ---------- */
+@media (pointer: coarse) {
+  button { min-height: 40px; padding: 8px 14px; }
+  #stopwatch { padding: 6px 8px; gap: 8px; }
+  #stopwatch button { min-height: 36px; padding: 6px 12px; font-size: 0.85rem; }
+  #sw-time { font-size: 1.2rem; }
+  input[type="range"] { height: 28px; }
+  input[type="checkbox"] { width: 20px; height: 20px; }
+  label.check { min-height: 40px; }
+}

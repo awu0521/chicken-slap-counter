@@ -1,0 +1,15 @@
+# Wrangler local dev state, cache and account info
+.wrangler/
+
+# Local secrets for `wrangler dev`
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+
+# Dependencies (if a package.json is ever added)
+node_modules/
+
+# OS / editor clutter
+.DS_Store
+*.log

@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "chicken-slap-counter",
+  "compatibility_date": "2025-01-01",
+  // Static site only: hand tracking runs in the visitor's browser.
+  "assets": {
+    "directory": "./public"
+  }
+}
